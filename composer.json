@@ -1,0 +1,24 @@
+{
+    "name": "awkwardideas/migrator",
+    "description": "",
+    "authors": [
+        {
+            "name": "Chad Haney",
+            "email": "chad@awkwardideas.com"
+        },
+        {
+            "name": "Awkward Ideas",
+            "email": "support@awkwardideas.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "awkwardideas/mypdo" : "@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "AwkwardIdeas\\Migrator\\": "src/"
+        }
+    },
+    "minimum-stability": "dev"
+}
