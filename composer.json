@@ -14,7 +14,7 @@
     ],
     "require": {
         "php": ">=5.6.4",
-        "awkwardideas/mypdo" : "dev-master"
+        "awkwardideas/mypdo" : "@dev"
     },
     "autoload": {
         "psr-4": {
