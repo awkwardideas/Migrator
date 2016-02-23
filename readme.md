@@ -1,9 +1,9 @@
 # Migrator: MySQL to Laravel Migration Generator
 
-[![Total Downloads](https://poser.pugx.org/laravel/framework/d/total.svg)](https://packagist.org/packages/awkwardideas/migrator)
-[![Latest Stable Version](https://poser.pugx.org/laravel/framework/v/stable.svg)](https://packagist.org/packages/awkwardideas/migrator)
-[![Latest Unstable Version](https://poser.pugx.org/laravel/framework/v/unstable.svg)](https://packagist.org/packages/awkwardideas/migrator)
-[![License](https://poser.pugx.org/laravel/framework/license.svg)](https://packagist.org/packages/awkwardideas/migrator)
+[![Latest Stable Version](https://poser.pugx.org/awkwardideas/migrator/v/stable)](https://packagist.org/packages/awkwardideas/migrator) 
+[![Total Downloads](https://poser.pugx.org/awkwardideas/migrator/downloads)](https://packagist.org/packages/awkwardideas/migrator) 
+[![Latest Unstable Version](https://poser.pugx.org/awkwardideas/migrator/v/unstable)](https://packagist.org/packages/awkwardideas/migrator) 
+[![License](https://poser.pugx.org/awkwardideas/migrator/license)](https://packagist.org/packages/awkwardideas/migrator)
 
 ## Install Via Composer
 
