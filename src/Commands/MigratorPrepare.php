@@ -12,7 +12,7 @@ class MigratorPrepare extends Command
      *
      * @var string
      */
-    protected $signature = 'migrator:prepare {--from}';
+    protected $signature = 'migrator:prepare {--from=}';
 
     /**
      * The console command description.
@@ -44,6 +44,7 @@ class MigratorPrepare extends Command
         } else {
             $from="";
         }
+        $this->comment("Migrating from $from.");
         $this->comment(PHP_EOL.Migrator::PrepareMigrations($from).PHP_EOL);
     }
 

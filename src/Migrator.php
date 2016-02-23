@@ -2,6 +2,7 @@
 namespace AwkwardIdeas\Migrator;
 
 use AwkwardIdeas\MyPDO\MyPDO as DB;
+use AwkwardIdeas\MyPDO\SQLParameter;
 
 class Migrator{
     private $connection;
@@ -380,7 +381,7 @@ class Migrator{
 
     private function GetFileName($tablename){
         $d = date('Y_m_d_His');
-        return "$d_create_$tablename_table.php";
+        return $d . "_create_" . $tablename . "_table.php";
     }
 
     private function AddColumnByDataType($tablename, $coldata)

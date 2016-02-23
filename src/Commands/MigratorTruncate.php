@@ -12,7 +12,7 @@ class MigratorTruncate extends Command
      *
      * @var string
      */
-    protected $signature = 'migrator:truncate {--force} {--database}';
+    protected $signature = 'migrator:truncate {--force} {--database=}';
 
     /**
      * The console command description.

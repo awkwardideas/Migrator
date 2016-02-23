@@ -12,7 +12,7 @@ class MigratorPurge extends Command
      *
      * @var string
      */
-    protected $signature = 'migrator:purge {--force} {--database}';
+    protected $signature = 'migrator:purge {--force} {--database=}';
 
     /**
      * The console command description.

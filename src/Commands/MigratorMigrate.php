@@ -12,7 +12,7 @@ class MigratorMigrate extends Command
      *
      * @var string
      */
-    protected $signature = 'migrator:migrate {--force} {--from} {--purge}';
+    protected $signature = 'migrator:migrate {--force} {--from=} {--purge} {--to=} ';
 
     /**
      * The console command description.
@@ -39,8 +39,8 @@ class MigratorMigrate extends Command
     public function handle()
     {
         if ($this->option('purge')) {
-            if ($this->option('from')!="") {
-                $database = $this->option('from');
+            if ($this->option('to')!="") {
+                $database = $this->option('to');
             } else {
                 $database = $this->ask('What database do you want to truncate?');
             }
@@ -57,6 +57,8 @@ class MigratorMigrate extends Command
         } else {
             $from="";
         }
+        $this->comment("Migrating from $from.");
+
         $this->comment(PHP_EOL.Migrator::PrepareMigrations($from).PHP_EOL);
 
         $this->call('migrate');
