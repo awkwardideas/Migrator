@@ -45,7 +45,7 @@ class MigratorTruncate extends Command
             $database = $this->ask('What database do you want to truncate?');
         }
 
-        if (($this->option('force')=="VALUE_NONE") OR $this->confirm('Are you sure you want to truncate the database ('.$database .')? [yes|no]')) {
+        if (($this->option('force')=="VALUE_NONE") OR $this->confirm('Are you sure you want to truncate the database ('.$database .')?')) {
             $this->comment(PHP_EOL . Migrator::TruncateDatabase($database).PHP_EOL);
         }
     }

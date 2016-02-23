@@ -1,7 +1,7 @@
 <?php
 namespace AwkwardIdeas\Migrator;
 
-use AwkwardIdeas\MyPDO\MyPDOServiceProvider as DB;
+use AwkwardIdeas\MyPDO\MyPDO as DB;
 
 class Migrator{
     private $connection;
@@ -61,9 +61,9 @@ class Migrator{
 
     private function EstablishConnection(){
         if($this->db->EstablishConnections($this->GetHost(), $this->GetDatabase(), $this->GetUsername(), $this->GetPassword(), $this->GetUsername(), $this->GetPassword()))
-            $output.= "<p>Connected to <b>".$this->GetDatabase()."</b> on <b>".$this->GetHost()."</b>.</p>";
+            return "<p>Connected to <b>".$this->GetDatabase()."</b> on <b>".$this->GetHost()."</b>.</p>";
         else
-            $output.= "<p>Unable to connect. Please verify permissions.</p>";
+            return "<p>Unable to connect. Please verify permissions.</p>";
     }
 
     private function CloseConnection()
@@ -120,7 +120,7 @@ class Migrator{
 
     public static function PrepareMigrations($database){
         $myLaravel = new Migrator();
-        if($from!=""){
+        if($database!=""){
             $myLaravel->SetDatabase($database);
         }
         $tables = $myLaravel->GetTables();
@@ -128,16 +128,11 @@ class Migrator{
             $tablename = $table[0];
             $myLaravel->CreateMigrationsFile($tablename);
         }
-        return "New Migration Files Created in $migrationsDirectory";
+        return "New Migration Files Created in " . self::GetMigrationsDirectory();
     }
 
-    public function GetMigrationsDirectory(){
+    private static function GetMigrationsDirectory(){
         return getcwd().'/database/migrations/';
-    }
-
-    public static function Migrate(){
-        $myLaravel = new Migrator();
-        return $myLaravel->GetMigrations();
     }
 
     public function GetTables(){
@@ -160,7 +155,7 @@ class Migrator{
     public function CreateMigrationsFile($tablename){
         $fileData = $this->GetFileOutput($tablename);
         $fileName = $this->GetFileName($tablename);
-        $dir = $myLaravel->GetMigrationsDirectory();
+        $dir = self::GetMigrationsDirectory();
 
         $parts = explode('/', $dir);
         $file = array_pop($parts);
@@ -211,9 +206,6 @@ class Migrator{
         else
             $output.= "<p>Unable to connect. Please verify permissions.</p>";
         return $output;
-
-
-
     }
 
     private function GetFileOutput($tablename){
