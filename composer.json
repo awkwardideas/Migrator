@@ -1,6 +1,6 @@
 {
     "name": "awkwardideas/migrator",
-    "description": "",
+    "description": "MySQL to Laravel Migrator",
     "authors": [
         {
             "name": "Chad Haney",
@@ -14,18 +14,12 @@
     "require": {
         "php": ">=5.4.0",
         "illuminate/support": "4.0.x",
-        "awkwardideas/mypdo" : "dev-master"
+        "awkwardideas/mypdo" : "@dev"
     },
     "autoload": {
         "psr-4": {
             "AwkwardIdeas\\Migrator\\": "src/"
         }
     },
-    "repositories": [
-        {
-            "type": "git",
-            "url": "https://github.com/awkwardideas/MyPDO.git"
-        }
-    ],
     "minimum-stability": "dev"
 }
