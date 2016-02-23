@@ -6,6 +6,18 @@ use AwkwardIdeas\MyPDO\MyPDOServiceProvider;
 class MigratorServiceProvider extends ServiceProvider
 {
 
+	/**
+	 * Perform post-registration booting of services.
+	 *
+	 * @return void
+	 */
+	public function boot()
+	{
+		$configPath = __DIR__ . '/../config/migrator.php';
+		
+		$this->publishes([$configPath => $this->getConfigPath()], 'config');
+	}
+
     /**
      * Register the service provider.
      *
@@ -15,6 +27,8 @@ class MigratorServiceProvider extends ServiceProvider
     {
 
         require_once __DIR__ . '/helpers.php';
+		
+		$this->mergeConfigFrom(__DIR__ . '/../config/migrator.php', 'migrator');
 
         $this->app['migrator.clean'] = $this->app->share(function () {
             return new Commands\MigratorClean();
@@ -38,7 +52,6 @@ class MigratorServiceProvider extends ServiceProvider
             'migrator.purge',
             'migrator.truncate'
         );
-        $this->app->register(MyPDOServiceProvider::class);
     }
     /**
      * Get the services provided by the provider.
@@ -48,5 +61,10 @@ class MigratorServiceProvider extends ServiceProvider
     public function provides()
     {
         return array();
+    }
+	
+	private function getConfigPath()
+    {
+        return config_path('migrator.php');
     }
 }
