@@ -39,10 +39,10 @@ class MigratorPrepare extends Command
     public function handle()
     {
         //Create Migration Files
-        if ($this->option('from')) {
+        if ($this->option('from') != "") {
             $from = $this->option('from');
         } else {
-            $from="";
+            $from= $this->ask('What database do you want to create the migrations from?');
         }
         $this->comment("Migrating from $from.");
         $this->comment(PHP_EOL.Migrator::PrepareMigrations($from).PHP_EOL);

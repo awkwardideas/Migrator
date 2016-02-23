@@ -29,7 +29,7 @@ class Migrator{
         if($connection_host!="" && $connection_database!="" && $connection_username!="" && $connection_password!="") $this->process=true;
 
         if(!$this->process) {
-            $removeFromFileValue = "/[^a-zA-Z0-9]+/";
+            $removeFromFileValue = "/[\n\r]/";
             $filePath = getcwd().'/.env';
             if (file_exists($filePath)) {
                 $handle = @fopen($filePath, "r");

@@ -52,10 +52,10 @@ class MigratorMigrate extends Command
             }
         }
 
-        if ($this->option('from')) {
+        if ($this->option('from')!= "") {
             $from = $this->option('from');
         } else {
-            $from="";
+            $from= $this->ask('What database do you want to create the migrations from?');
         }
         $this->comment("Migrating from $from.");
 
