@@ -1,6 +1,7 @@
 {
     "name": "awkwardideas/migrator",
     "description": "MySQL to Laravel Migrator",
+	"license": "MIT",
     "authors": [
         {
             "name": "Chad Haney",
@@ -12,14 +13,17 @@
         }
     ],
     "require": {
-        "php": ">=5.4.0",
+        "php": ">=5.6.4",
         "illuminate/support": "4.0.x",
         "awkwardideas/mypdo" : "@dev"
     },
     "autoload": {
         "psr-4": {
             "AwkwardIdeas\\Migrator\\": "src/"
-        }
+        },
+		"files": [
+            "helpers.php"
+        ]
     },
     "minimum-stability": "dev"
 }
