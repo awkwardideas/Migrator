@@ -51,7 +51,7 @@ class MigratorServiceProvider extends ServiceProvider
             'migrator.truncate'
         );
 		
-		$this->app->register(MyPDO\MyPDOServiceProvider::class);
+		$this->app->register(AwkwardIdeas\MyPDO\MyPDOServiceProvider::class);
     }
     /**
      * Get the services provided by the provider.
