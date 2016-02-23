@@ -13,8 +13,9 @@ class MigratorServiceProvider extends ServiceProvider
      */
     public function register()
     {
-		require_once __DIR__ . '/MyPDO.php';
-		
+
+        require_once __DIR__ . '/helpers.php';
+
         $this->app['migrator.clean'] = $this->app->share(function () {
             return new Commands\MigratorClean();
         });
@@ -37,6 +38,7 @@ class MigratorServiceProvider extends ServiceProvider
             'migrator.purge',
             'migrator.truncate'
         );
+        $this->app->register(MyPDOServiceProvider::class);
     }
     /**
      * Get the services provided by the provider.

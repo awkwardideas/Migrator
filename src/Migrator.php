@@ -1,7 +1,7 @@
 <?php
 namespace AwkwardIdeas\Migrator;
 
-use AwkwardIdeas\MyPDO\MyPDOServiceProvider;
+use AwkwardIdeas\MyPDO\MyPDOServiceProvider as DB;
 
 class Migrator{
     private $connection;
@@ -11,6 +11,7 @@ class Migrator{
     public function __construct()
     {
         $this->connection = self::GetConnectionData();
+        $this->db = new DB();
     }
 
     private function GetConnectionData(){
@@ -58,6 +59,19 @@ class Migrator{
         return ["host"=>$connection_host, "database"=>$connection_database, "username"=>$connection_username, "password"=>$connection_password];
     }
 
+    private function EstablishConnection(){
+        if($this->db->EstablishConnections($this->GetHost(), $this->GetDatabase(), $this->GetUsername(), $this->GetPassword(), $this->GetUsername(), $this->GetPassword()))
+            $output.= "<p>Connected to <b>".$this->GetDatabase()."</b> on <b>".$this->GetHost()."</b>.</p>";
+        else
+            $output.= "<p>Unable to connect. Please verify permissions.</p>";
+    }
+
+    private function CloseConnection()
+    {
+        $this->db->CloseConnections();
+    }
+
+
     public function GetHost(){
         return $this->connection["host"];
     }
@@ -67,7 +81,9 @@ class Migrator{
     }
 
     public function SetDatabase($database){
+        $this->CloseConnection();
         $this->connection["database"] =$database;
+        $this->EstablishConnection();
     }
 
     public function GetUsername(){
@@ -80,8 +96,6 @@ class Migrator{
 
     public function GetModels(){
         if(!$this->process) return;
-
-
     }
 
     public static function TruncateDatabase($database){
@@ -109,7 +123,6 @@ class Migrator{
         if($from!=""){
             $myLaravel->SetDatabase($database);
         }
-
         $tables = $myLaravel->GetTables();
         foreach ($tables as $table) {
             $tablename = $table[0];

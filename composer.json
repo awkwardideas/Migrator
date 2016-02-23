@@ -20,5 +20,11 @@
             "AwkwardIdeas\\Migrator\\": "src/"
         }
     },
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/awkwardideas/MyPDO.git"
+        }
+    ],
     "minimum-stability": "dev"
 }
