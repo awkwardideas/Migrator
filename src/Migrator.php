@@ -5,73 +5,81 @@ use AwkwardIdeas\MyPDO\MyPDO as DB;
 use AwkwardIdeas\MyPDO\SQLParameter;
 
 class Migrator{
-    private $connection;
+    private $connection = [
+        "host"=>"",
+        "database"=>"",
+        "username"=>"",
+        "password"=>""
+    ];
     private $process=false;
     private $db;
 
     public function __construct()
     {
-        $this->connection = self::GetConnectionData();
+        self::GetConnectionData();
         $this->db = new DB();
     }
 
     private function GetConnectionData(){
-        $connection_host = "";
-        $connection_database = "";
-        $connection_username = "";
-        $connection_password = "";
-
-        if(isset($_POST['host'])) $connection_host = $_POST['host'];
-        if(isset($_POST['database'])) $connection_database = $_POST['database'];
-        if(isset($_POST['username'])) $connection_username = $_POST['username'];
-        if(isset($_POST['password'])) $connection_password = $_POST['password'];
-
-        if($connection_host!="" && $connection_database!="" && $connection_username!="" && $connection_password!="") $this->process=true;
-
-        if(!$this->process) {
-            $removeFromFileValue = "/[\n\r]/";
-            $filePath = getcwd().'/.env';
-            if (file_exists($filePath)) {
-                $handle = @fopen($filePath, "r");
-                if ($handle) {
-                    while (($buffer = fgets($handle, 4096)) !== false) {
-                        if (strpos(strtoupper($buffer), "DB_HOST=") > -1) {
-                            $connection_host = preg_replace($removeFromFileValue, '', after("=", $buffer));
-                        }
-                        if (strpos(strtoupper($buffer), "DB_DATABASE=") > -1) {
-                            $connection_database = preg_replace($removeFromFileValue, '', after("=", $buffer));
-                        }
-                        if (strpos(strtoupper($buffer), "DB_USERNAME=") > -1) {
-                            $connection_username = preg_replace($removeFromFileValue, '', after("=", $buffer));
-                        }
-                        if (strpos(strtoupper($buffer), "DB_PASSWORD=") > -1) {
-                            $connection_password = preg_replace($removeFromFileValue, '', after("=", $buffer));
-                        }
+        $filePath = getcwd().'/.env';
+        if (file_exists($filePath)) {
+            $handle = @fopen($filePath, "r");
+            if ($handle) {
+                while (($buffer = fgets($handle, 4096)) !== false) {
+                    $value = self::GetEnvVariable("DB_HOST", $buffer);
+                    if ($value !== false){
+                        $this->connection["host"] = $value;
+                        continue;
                     }
-                    if (!feof($handle)) {
-                        echo "Error: unexpected fgets() fail\n";
+                    $value = self::GetEnvVariable("DB_DATABASE", $buffer);
+                    if ($value !== false){
+                        $this->connection["database"] = $value;
+                        continue;
                     }
-                    fclose($handle);
+                    $value = self::GetEnvVariable("DB_USERNAME", $buffer);
+                    if ($value !== false){
+                        $this->connection["username"] = $value;
+                        continue;
+                    }
+                    $value = self::GetEnvVariable("DB_PASSWORD", $buffer);
+                    if ($value !== false){
+                        $this->connection["password"] = $value;
+                        continue;
+                    }
                 }
+                if (!feof($handle)) {
+                    echo "Error: unexpected fgets() fail\n";
+                }
+                fclose($handle);
             }
-
-            if($connection_host!="" && $connection_database!="" && $connection_username!="" && $connection_password!="") $this->process=true;
         }
-        return ["host"=>$connection_host, "database"=>$connection_database, "username"=>$connection_username, "password"=>$connection_password];
+
+        if($this->connection["host"]!="" && $this->connection["database"]!="" && $this->connection["username"]!="" && $this->connection["password"]!="") $this->process=true;
+    }
+
+    private function GetEnvVariable($variableName, $buffer){
+        if (strpos(strtoupper($buffer), $variableName."=") > -1) {
+            $removeFromFileValue = "/[\n\r]/";
+            return preg_replace($removeFromFileValue, '', after("=", $buffer));
+        }else{
+            return false;
+        }
     }
 
     private function EstablishConnection(){
+        if(!$this->process)
+            return "<p>Required connection data not found in .env</p>";
+
         if($this->db->EstablishConnections($this->GetHost(), $this->GetDatabase(), $this->GetUsername(), $this->GetPassword(), $this->GetUsername(), $this->GetPassword()))
             return "<p>Connected to <b>".$this->GetDatabase()."</b> on <b>".$this->GetHost()."</b>.</p>";
         else
             return "<p>Unable to connect. Please verify permissions.</p>";
     }
 
-    private function CloseConnection()
-    {
+    private function CloseConnection(){
         $this->db->CloseConnections();
+        $this->process = false;
     }
-
 
     public function GetHost(){
         return $this->connection["host"];
@@ -84,6 +92,7 @@ class Migrator{
     public function SetDatabase($database){
         $this->CloseConnection();
         $this->connection["database"] =$database;
+        $this->process = true;
         $this->EstablishConnection();
     }
 
@@ -95,18 +104,15 @@ class Migrator{
         return $this->connection["password"];
     }
 
-    public function GetModels(){
-        if(!$this->process) return;
-    }
-
-    public static function TruncateDatabase($database){
+    public static function TruncateDatabase($database)
+    {
         $myLaravel = new Migrator();
         $myLaravel->SetDatabase($database);
-        $query = "show tables;";
         $tables = $myLaravel->GetTables();
-
-        foreach ($tables as $table) {
-            $myLaravel->DeleteTable($table[0]);
+        if (count($tables) > 0) {
+            foreach ($tables as $table) {
+                $myLaravel->DeleteTable($table[0]);
+            }
         }
         return "Tables Deleted from $database";
     }
@@ -166,39 +172,6 @@ class Migrator{
         return file_put_contents("$dir/$fileName", $fileData);
     }
 
-    public function GetMigrations(){
-        if(!$this->process) return;
-
-        $output="";
-        $tableLinks=[];
-        $tableData=[];
-
-        $tables = $this->GetTables();
-        $output .= "<p>Found " . count($tables) . " tables.</p>";
-        foreach ($tables as $table) {
-            $tablename = $table[0];
-
-            $eloquentData = self::GetFileOutput($tablename);
-
-            $tableLinks[] = "<li role='presentation'><a href='#table-$tablename' aria-controls='table-$tablename' role='tab' data-toggle='tab'>$tablename</a></li>";
-            $tableData[] = "<div role='tabpanel' class='tab-pane' id='table-$tablename'><div class='well'><div class=''form-group'><button class='btn btn-primary saveToFile' data-table='$tablename' style='margin-bottom:10px'><span class=\"glyphicon glyphicon-floppy-disk\" aria-hidden=\"true\"></span></button><label class='pull-right'>$tablename</label><textarea class='form-control input-lg' rows='15'>$eloquentData</textarea></div></div></div>";
-        }
-
-        unset($this->db);
-
-        $output .= "<div><ul class=\"nav nav-pills\" role=\"tablist\">";
-        foreach($tableLinks as $tableLink){
-            $output .= $tableLink;
-        }
-        $output .= "</ul><div class=\"tab-content\" style='margin-top:50px'>";
-        foreach($tableData as $data){
-            $output .= $data;
-        }
-        $output .= "</div></div>";
-
-        return $output;
-    }
-
     private function ConnectToDatabase(){
         $this->db = new DB();
         $output="";
@@ -209,182 +182,219 @@ class Migrator{
         return $output;
     }
 
-    private function GetFileOutput($tablename){
-        $output="";
-        $output = "<?php" . PHP_EOL
-            . PHP_EOL
-            . "use Illuminate\Database\Schema\Blueprint;" . PHP_EOL
-            . "use Illuminate\Database\Migrations\Migration;" . PHP_EOL
-            . PHP_EOL
-            . "class Create".ucwords($tablename)."Table extends Migration" . PHP_EOL
-            . "{" . PHP_EOL
-            . indent() . "/**" . PHP_EOL
-            . indent() . " * Run the migrations." . PHP_EOL
-            . indent() . " *" . PHP_EOL
-            . indent() . " * @return void" . PHP_EOL
-            . indent() . " */" . PHP_EOL
-            . indent() . "public function up()" . PHP_EOL
-            . indent() . "{" . PHP_EOL
-            . indent(2) . "if (!Schema::hasTable('" . $tablename . "')) {" . PHP_EOL;
-
-        $schemaCreateWrapInject = "";
-        $schemaTableWrapInject = "";
-
-        $columns = $this->DescribeTable($tablename);
-        $foreignKeys=[];
-        $primaryKeys=[];
-        $indexes=[];
-        $uniques=[];
-        $autoIncrement=[];
-
-        foreach ($columns as $columndata) {
-            $schemaCreateWrapInject .= indent(4) . self::AddColumnByDataType($tablename, $columndata) . ';' . PHP_EOL;
-            if(strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") > -1){
-                $autoIncrement[]=$columndata["Field"];
-            }
-            if(strpos(strtoupper($columndata["Key"]), "PRI") > -1 && ($columndata["Extra"] =="" || strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") == -1)){
-                $primaryKeys[]=$columndata["Field"];
-            }
-            if (strpos(strtoupper($columndata["Key"]),"MUL") > -1) {
-                $foreignKeys[]= self::GetForeignKeys($tablename, $columndata["Field"], indent(4));
-            }
-        }
-        $inheritUnique = array_merge($autoIncrement, $primaryKeys);
-
-        $indexes[] = self::GetIndexes($tablename, $inheritUnique, indent(4));
-        $uniques[] = self::GetUniques($tablename, $inheritUnique, indent(4));
-        if(count($primaryKeys)>0 && count($autoIncrement)==0){
-            $identifierName = self::GetIdentifier($tablename, implode("_", $primaryKeys), "primary");
-            if(count($primaryKeys)==1){
-                $schemaTableWrapInject .= indent(4) . '$table->primary(\'' . implode($primaryKeys).'\',\''.$identifierName.'\');' . PHP_EOL;
-            }else{
-                $schemaTableWrapInject .= indent(4) . '$table->primary([\'' . implode('\',\'',$primaryKeys).'\'],\''.$identifierName.'\');' . PHP_EOL;
-            }
-        }
-        $foreignKeys = array_filter($foreignKeys);
-        if(count($foreignKeys) > 0){
-            foreach($foreignKeys as $foreignKey){
-                $schemaTableWrapInject .= $foreignKey;
-            }
-        }
-        $indexes = array_filter($indexes);
-        if(count($indexes) > 0){
-            foreach($indexes as $index){
-                $schemaTableWrapInject .= $index;
-            }
-        }
-        $uniques = array_filter($uniques);
-        if(count($uniques) > 0){
-            foreach($uniques as $unique){
-                $schemaTableWrapInject .= $unique;
-            }
-        }
-        $output .= self::SchemaCreateWrap($tablename,$schemaCreateWrapInject,indent(3));
-        $schemaCreateWrapInject="";
-        $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(3));
-        $schemaTableWrapInject="";
-
-        //End Else
-        $output .= indent(2) ."}else{" . PHP_EOL;
-
-        $foreignKeys=[];
-        $primaryKeys=[];
-        $indexes=[];
-        $uniques=[];
-        $autoIncrement=[];
-
-        foreach ($columns as $columndata) {
-            $output .= indent(3) . 'if (!Schema::hasColumn(\'' . $tablename . '\', \'' . $columndata["Field"] . '\')) {' . PHP_EOL;
-            $schemaTableWrapInject .= indent(5) . self::AddColumnByDataType($tablename, $columndata) . ';' . PHP_EOL;
-            $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(4));
-            $schemaTableWrapInject="";
-            if(strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") > -1){
-                $autoIncrement[]=$columndata["Field"];
-            }
-            if(strpos(strtoupper($columndata["Key"]), "PRI") > -1 && strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") == -1){
-                $primaryKeys[]=$columndata["Field"];
-            }
-            if (strpos(strtoupper($columndata["Key"]),"MUL") > -1) {
-                $foreignKeys[]= self::GetForeignKeys($tablename, $columndata["Field"], indent(5));
-            }
-            $output .= indent(3) . '}' . PHP_EOL
-                . PHP_EOL;
-        }
-        $inheritUnique = array_merge($autoIncrement, $primaryKeys);
-
-        $indexes[] = self::GetIndexes($tablename, $inheritUnique, indent(5));
-        $uniques[] = self::GetUniques($tablename, $inheritUnique, indent(5));
-
-        if(count($primaryKeys)>0 && count($autoIncrement)==0){
-            $identifierName = self::GetIdentifier($tablename, implode("_", $primaryKeys), "primary");
-            if(count($primaryKeys)==1){
-                $schemaTableWrapInject .=  indent(4) . '$table->primary(\'' . implode($primaryKeys).'\',\''.$identifierName.'\');' . PHP_EOL;
-            }else{
-                $schemaTableWrapInject .=  indent(4) . '$table->primary([\'' . implode('\',\'',$primaryKeys).'\'],\''.$identifierName.'\');' . PHP_EOL;
-            }
-            $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(3));
-            $schemaTableWrapInject="";
-        }
-        $foreignKeys = array_filter($foreignKeys);
-        if(count($foreignKeys) > 0){
-            foreach($foreignKeys as $foreignKey){
-                $schemaTableWrapInject .= $foreignKey;
-            }
-            $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(3));
-            $schemaTableWrapInject="";
-        }
-
-        $indexes = array_filter($indexes);
-        if(count($indexes) > 0){
-            foreach($indexes as $index){
-                $schemaTableWrapInject .= $index;
-            }
-            $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(3));
-            $schemaTableWrapInject="";
-        }
-
-        $uniques = array_filter($uniques);
-        if(count($uniques) > 0){
-            foreach($uniques as $unique){
-                $schemaTableWrapInject .= $unique;
-            }
-            $output .= self::SchemaTableWrap($tablename,$schemaTableWrapInject,indent(3));
-            $schemaTableWrapInject="";
-        }
-
-        $output .= indent(2) . "}" . PHP_EOL //End Else
-            . indent() . "}" . PHP_EOL //End Up()
-            . PHP_EOL;
-
-        $output .= indent() . "/**" . PHP_EOL
-            . indent() . " * Reverse the migrations." . PHP_EOL
-            . indent() . " *" . PHP_EOL
-            . indent() . " * @return void" . PHP_EOL
-            . indent() . " */" . PHP_EOL
-            . indent() . "public function down()" . PHP_EOL
-            . indent() . "{" . PHP_EOL
-            . self::DropForeignKeys($tablename, indent(2))
-            . indent(2) . "Schema::drop('$tablename');" . PHP_EOL
-            . indent() . "}" . PHP_EOL;
-
-        $output .= indent() . "/**" . PHP_EOL
-            . indent() . " *" . PHP_EOL;
-        foreach ($columns as $columndata) {
-            $output .= indent() . " * " . $columndata["Field"] . "	" . $columndata["Type"] . "	" . $columndata["Null"] . "	" . $columndata["Key"] . "	" . $columndata["Default"] . "	" . $columndata["Extra"] . "	" . PHP_EOL;
-        }
-        $output .= indent() . " *" . PHP_EOL
-            . indent() . " */" . PHP_EOL
-            . "}";
-
-        return $output;
-    }
-
     private function GetFileName($tablename){
         $d = date('Y_m_d_His');
         return $d . "_create_" . $tablename . "_table.php";
     }
 
-    private function AddColumnByDataType($tablename, $coldata)
+    private function GetFileOutput($tablename)
+    {
+        $columns = $this->DescribeTable($tablename);
+        $output = "<?php" . PHP_EOL
+            . PHP_EOL
+            . "use Illuminate\Database\Schema\Blueprint;" . PHP_EOL
+            . "use Illuminate\Database\Migrations\Migration;" . PHP_EOL
+            . PHP_EOL
+            . "class Create" . ucwords($tablename) . "Table extends Migration" . PHP_EOL
+            . "{" . PHP_EOL
+                . self::GetUpFunctionCall($tablename, $columns, indent())
+                . self::GetDownFunctionCall($tablename, indent())
+                . self::CommentTableStructure($columns, indent())
+            . "}";
+        return $output;
+    }
+
+    private function GetUpFunctionCall($tablename, $columns, $indentation)
+    {
+        return $indentation . "/**" . PHP_EOL
+            . $indentation . " * Run the migrations." . PHP_EOL
+            . $indentation . " *" . PHP_EOL
+            . $indentation . " * @return void" . PHP_EOL
+            . $indentation . " */" . PHP_EOL
+            . $indentation . "public function up()" . PHP_EOL
+            . $indentation . "{" . PHP_EOL
+                . $indentation . indent() . "if (!Schema::hasTable('" . $tablename . "')) {" . PHP_EOL
+                    . self::GetSchemaNotExists($tablename, $columns, $indentation . indent(2))
+                . $indentation . indent() ."}else{" . PHP_EOL
+                    . self::GetSchemaExists($tablename, $columns, $indentation . indent(2))
+                . $indentation . indent() . "}" . PHP_EOL //End Else
+            . $indentation . "}" . PHP_EOL //End Up()
+            . PHP_EOL;
+    }
+
+    private function GetDownFunctionCall($tablename, $indentation)
+    {
+        return $indentation . "/**" . PHP_EOL
+            . $indentation . " * Reverse the migrations." . PHP_EOL
+            . $indentation . " *" . PHP_EOL
+            . $indentation . " * @return void" . PHP_EOL
+            . $indentation . " */" . PHP_EOL
+            . $indentation . "public function down()" . PHP_EOL
+            . $indentation . "{" . PHP_EOL
+            . self::DropForeignKeys($tablename, $indentation . indent())
+            . $indentation . indent() . "Schema::drop('$tablename');" . PHP_EOL
+            . $indentation . "}" . PHP_EOL;
+    }
+
+    private function CommentTableStructure($columns, $indentation){
+        $output = $indentation . "/**" . PHP_EOL
+            . $indentation . " *" . PHP_EOL;
+        foreach ($columns as $columndata) {
+            $output .= $indentation . " * " . $columndata["Field"] . "	" . $columndata["Type"] . "	" . $columndata["Null"] . "	" . $columndata["Key"] . "	" . $columndata["Default"] . "	" . $columndata["Extra"] . "	" . PHP_EOL;
+        }
+        $output .= $indentation . " *" . PHP_EOL
+            . $indentation . " */" . PHP_EOL;
+
+        return $output;
+    }
+
+    private function GetSchemaNotExists($tablename, $columns, $indentation)
+    {
+        $schemaCreateWrapInject = "";
+        $schemaTableWrapInject = "";
+        $output="";
+        $tabledata = [
+            "foreignKeys" => [],
+            "primaryKeys" => [],
+            "indexes" => [],
+            "uniques" => [],
+            "autoIncrement" => []
+        ];
+
+        //Loop through the columns and collect information about the columns
+        foreach ($columns as $columndata) {
+            $schemaCreateWrapInject .= $indentation . indent() . self::AddColumnByDataType($columndata) . ';' . PHP_EOL;
+            if (strpos(strtoupper($columndata["Extra"]), "AUTO_INCREMENT") > -1) {
+                $tabledata["autoIncrement"][] = $columndata["Field"];
+            }
+            if (strpos(strtoupper($columndata["Key"]), "PRI") > -1 && ($columndata["Extra"] == "" || strpos(strtoupper($columndata["Extra"]), "AUTO_INCREMENT") == -1)) {
+                $tabledata["primaryKeys"][] = $columndata["Field"];
+            }
+            if (strpos(strtoupper($columndata["Key"]), "MUL") > -1) {
+                $tabledata["foreignKeys"][] = self::GetForeignKeys($tablename, $columndata["Field"], $indentation . indent());
+            }
+        }
+        $inheritUnique = array_merge($tabledata["autoIncrement"], $tabledata["primaryKeys"]);
+
+        $tabledata["indexes"][] = self::GetIndexes($tablename, $inheritUnique, $indentation . indent());
+        $tabledata["uniques"][] = self::GetUniques($tablename, $inheritUnique, $indentation . indent());
+        if (count($tabledata["primaryKeys"]) > 0 && count($tabledata["autoIncrement"]) == 0) {
+            $identifierName = self::GetIdentifier($tablename, implode("_", $tabledata["primaryKeys"]), "primary");
+            if (count($tabledata["primaryKeys"]) == 1) {
+                $schemaTableWrapInject .= $indentation . indent() . '$table->primary(\'' . implode($tabledata["primaryKeys"]) . '\',\'' . $identifierName . '\');' . PHP_EOL;
+            } else {
+                $schemaTableWrapInject .= $indentation . indent() . '$table->primary([\'' . implode('\',\'', $tabledata["primaryKeys"]) . '\'],\'' . $identifierName . '\');' . PHP_EOL;
+            }
+        }
+        $tabledata["foreignKeys"] = array_filter($tabledata["foreignKeys"]);
+        if (count($tabledata["foreignKeys"]) > 0) {
+            foreach ($tabledata["foreignKeys"] as $foreignKey) {
+                $schemaTableWrapInject .= $foreignKey;
+            }
+        }
+        $tabledata["indexes"] = array_filter($tabledata["indexes"]);
+        if (count($tabledata["indexes"]) > 0) {
+            foreach ($tabledata["indexes"] as $index) {
+                $schemaTableWrapInject .= $index;
+            }
+        }
+        $tabledata["uniques"] = array_filter($tabledata["uniques"]);
+        if (count($tabledata["uniques"]) > 0) {
+            foreach ($tabledata["uniques"] as $unique) {
+                $schemaTableWrapInject .= $unique;
+            }
+        }
+        $output .= self::SchemaCreateWrap($tablename, $schemaCreateWrapInject, $indentation);
+        unset($schemaCreateWrapInject);
+        $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, $indentation);
+        unset($schemaTableWrapInject);
+
+        return $output;
+    }
+
+    private function GetSchemaExists($tablename, $columns, $indentation)
+    {
+        $tabledata = [
+            "foreignKeys" => [],
+            "primaryKeys" => [],
+            "indexes" => [],
+            "uniques" => [],
+            "autoIncrement" => []
+        ];
+        $schemaTableWrapInject = "";
+        $output = "";
+
+        foreach ($columns as $columndata) {
+            $output .=  self::GetSchemaNotHasColumn($tablename, $columndata, $tabledata, $indentation.indent(3));
+        }
+        $inheritUnique = array_merge($tabledata["autoIncrement"], $tabledata["primaryKeys"]);
+
+        $tabledata["indexes"][] = self::GetIndexes($tablename, $inheritUnique, indent(5));
+        $tabledata["uniques"][] = self::GetUniques($tablename, $inheritUnique, indent(5));
+
+        if (count($tabledata["primaryKeys"]) > 0 && count($tabledata["autoIncrement"]) == 0) {
+            $identifierName = self::GetIdentifier($tablename, implode("_", $tabledata["primaryKeys"]), "primary");
+            if (count($tabledata["primaryKeys"]) == 1) {
+                $schemaTableWrapInject .= indent(4) . '$table->primary(\'' . implode($tabledata["primaryKeys"]) . '\',\'' . $identifierName . '\');' . PHP_EOL;
+            } else {
+                $schemaTableWrapInject .= indent(4) . '$table->primary([\'' . implode('\',\'', $tabledata["primaryKeys"]) . '\'],\'' . $identifierName . '\');' . PHP_EOL;
+            }
+            $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, indent(3));
+            $schemaTableWrapInject = "";
+        }
+
+        $tabledata["foreignKeys"] = array_filter($tabledata["foreignKeys"]);
+        if (count($tabledata["foreignKeys"]) > 0) {
+            foreach ($tabledata["foreignKeys"] as $foreignKey) {
+                $schemaTableWrapInject .= $foreignKey;
+            }
+            $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, indent(3));
+            $schemaTableWrapInject = "";
+        }
+
+        $tabledata["indexes"] = array_filter($tabledata["indexes"]);
+        if (count($tabledata["indexes"]) > 0) {
+            foreach ($tabledata["indexes"] as $index) {
+                $schemaTableWrapInject .= $index;
+            }
+            $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, indent(3));
+            $schemaTableWrapInject = "";
+        }
+
+        $tabledata["uniques"] = array_filter($tabledata["uniques"]);
+        if (count($tabledata["uniques"]) > 0) {
+            foreach ($tabledata["uniques"] as $unique) {
+                $schemaTableWrapInject .= $unique;
+            }
+            $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, indent(3));
+            $schemaTableWrapInject = "";
+        }
+
+        return $output;
+    }
+
+    private function GetSchemaNotHasColumn($tablename, $columndata, &$tabledata, $indentation){
+        $output = $indentation . 'if (!Schema::hasColumn(\'' . $tablename . '\', \'' . $columndata["Field"] . '\')) {' . PHP_EOL;
+        $schemaTableWrapInject = $indentation . indent(2) . self::AddColumnByDataType($columndata) . ';' . PHP_EOL;
+        $output .= self::SchemaTableWrap($tablename, $schemaTableWrapInject, $indentation . indent());
+
+        if(strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") > -1){
+            $tabledata["autoIncrement"][]=$columndata["Field"];
+        }
+        if(strpos(strtoupper($columndata["Key"]), "PRI") > -1 && strpos(strtoupper($columndata["Extra"]),"AUTO_INCREMENT") == -1){
+            $tabledata["primaryKeys"][]=$columndata["Field"];
+        }
+        if (strpos(strtoupper($columndata["Key"]),"MUL") > -1) {
+            $tabledata["foreignKeys"][]= self::GetForeignKeys($tablename, $columndata["Field"], $indentation .indent(2));
+        }
+        $output .= $indentation . '}' . PHP_EOL
+            . PHP_EOL;
+
+        return $output;
+    }
+
+
+    private function AddColumnByDataType($coldata)
     {
         $name = $coldata["Field"];
         $typedata = $coldata["Type"];
@@ -397,175 +407,175 @@ class Migrator{
         $data = between('(', ')', $typedata);
         $info = after(')', $typedata);
 
-        $eloquentCall = '$table->';
+        $migrationCall = '$table->';
 
         switch (strtoupper($type)) {
             //      $table->bigIncrements('id');	Incrementing ID (primary key) using a "UNSIGNED BIG INTEGER" equivalent.
             //      $table->bigInteger('votes');	BIGINT equivalent for the database.
             case 'BIGINT':
                 if (strpos(strtoupper($extra),"AUTO_INCREMENT") > -1) {
-                    $eloquentCall .= 'bigIncrements(\'' . $name . '\')';
+                    $migrationCall .= 'bigIncrements(\'' . $name . '\')';
                 } else {
-                    $eloquentCall .= 'bigInteger(\'' . $name . '\')';
+                    $migrationCall .= 'bigInteger(\'' . $name . '\')';
                 }
                 break;
             //      $table->binary('data');	BLOB equivalent for the database.
             case 'BINARY':
-                $eloquentCall .= 'binary(\'' . $name . '\')';
+                $migrationCall .= 'binary(\'' . $name . '\')';
                 break;
             case 'BIT':
-                $eloquentCall .= 'boolean(\'' . $name . '\')';
+                $migrationCall .= 'boolean(\'' . $name . '\')';
                 if($default!=""){
                     $default = (strpos($default,'0')>-1) ? "0" : "1";
                 }
                 break;
             //      $table->boolean('confirmed');	BOOLEAN equivalent for the database.
             case 'BOOLEAN':
-                $eloquentCall .= 'boolean(\'' . $name . '\')';
+                $migrationCall .= 'boolean(\'' . $name . '\')';
                 break;
             //      $table->char('name', 4);	CHAR equivalent with a length.
             case 'CHAR':
-                $eloquentCall .= 'char(\'' . $name . '\', ' . $data . ')';
+                $migrationCall .= 'char(\'' . $name . '\', ' . $data . ')';
                 break;
             //      $table->date('created_at');	DATE equivalent for the database.
             case 'DATE':
-                $eloquentCall .= 'date(\'' . $name . '\')';
+                $migrationCall .= 'date(\'' . $name . '\')';
                 break;
             //      $table->dateTime('created_at');	DATETIME equivalent for the database.
             case 'DATETIME':
-                $eloquentCall .= 'dateTime(\'' . $name . '\')';
+                $migrationCall .= 'dateTime(\'' . $name . '\')';
                 break;
             //      $table->decimal('amount', 5, 2);	DECIMAL equivalent with a precision and scale.
             case 'DECIMAL':
-                $eloquentCall .= 'decimal(\'' . $name . '\', ' . $data . ')';
+                $migrationCall .= 'decimal(\'' . $name . '\', ' . $data . ')';
                 break;
             //      $table->double('column', 15, 8);	DOUBLE equivalent with precision, 15 digits in total and 8 after the decimal point.
             case 'DOUBLE':
-                $eloquentCall .= 'double(\'' . $name . '\', ' . $data . ')';
+                $migrationCall .= 'double(\'' . $name . '\', ' . $data . ')';
                 break;
             //      $table->enum('choices', ['foo', 'bar']);	ENUM equivalent for the database.
             case 'ENUM':
-                $eloquentCall .= 'enum(\'' . $name . '\', [' . $data . '])';
+                $migrationCall .= 'enum(\'' . $name . '\', [' . $data . '])';
                 break;
             //      $table->float('amount');	FLOAT equivalent for the database.
             case 'FLOAT':
-                $eloquentCall .= 'float(\'' . $name . '\')';
+                $migrationCall .= 'float(\'' . $name . '\')';
                 break;
             //      $table->increments('id');	Incrementing ID (primary key) using a "UNSIGNED INTEGER" equivalent.
             //      $table->integer('votes');	INTEGER equivalent for the database.
             case 'INT':
                 if (strpos(strtoupper($extra),"AUTO_INCREMENT") > -1) {
-                    $eloquentCall .= 'increments(\'' . $name . '\')';
+                    $migrationCall .= 'increments(\'' . $name . '\')';
                 } else {
-                    $eloquentCall .= 'integer(\'' . $name . '\')';
+                    $migrationCall .= 'integer(\'' . $name . '\')';
                 }
                 break;
             //      $table->json('options');	JSON equivalent for the database.
             case 'JSON':
-                $eloquentCall .= 'json(\'' . $name . '\')';
+                $migrationCall .= 'json(\'' . $name . '\')';
                 break;
             //      $table->jsonb('options');	JSONB equivalent for the database.
             case 'JSONB':
-                $eloquentCall .= 'jsonb(\'' . $name . '\')';
+                $migrationCall .= 'jsonb(\'' . $name . '\')';
                 break;
             //      $table->longText('description');	LONGTEXT equivalent for the database.
             case 'LONGTEXT':
-                $eloquentCall .= 'longText(\'' . $name . '\')';
+                $migrationCall .= 'longText(\'' . $name . '\')';
                 break;
             //      $table->mediumInteger('numbers');	MEDIUMINT equivalent for the database.
             case 'MEDIUMINT':
-                $eloquentCall .= 'mediumInteger(\'' . $name . '\')';
+                $migrationCall .= 'mediumInteger(\'' . $name . '\')';
                 break;
             //      $table->mediumText('description');	MEDIUMTEXT equivalent for the database.
             case 'MEDIUMTEXT':
-                $eloquentCall .= 'mediumText(\'' . $name . '\')';
+                $migrationCall .= 'mediumText(\'' . $name . '\')';
                 break;
             //      $table->morphs('taggable');	Adds INTEGER taggable_id and STRING taggable_type.
             case 'MORPHS':
-                $eloquentCall .= 'morphs(\'' . $name . '\')';
+                $migrationCall .= 'morphs(\'' . $name . '\')';
                 break;
             //      $table->nullableTimestamps();	Same as timestamps(), except allows NULLs.
             case 'NULL_TIMESTAMPS':
-                $eloquentCall .= 'nullableTimestamps()';
+                $migrationCall .= 'nullableTimestamps()';
                 break;
             //      $table->rememberToken();	Adds remember_token as VARCHAR(100) NULL.
             case 'REMEMBER':
-                $eloquentCall .= 'rememberToken()';
+                $migrationCall .= 'rememberToken()';
                 break;
             //      $table->smallInteger('votes');	SMALLINT equivalent for the database.
             case 'SMALLINT':
-                $eloquentCall .= 'smallInteger(\'' . $name . '\')';
+                $migrationCall .= 'smallInteger(\'' . $name . '\')';
                 break;
             //      $table->softDeletes();	Adds deleted_at column for soft deletes.
             case 'SOFTDELETES':
-                $eloquentCall .= 'softDeletes()';
+                $migrationCall .= 'softDeletes()';
                 break;
             //      $table->string('email');	VARCHAR equivalent column.
             //      $table->string('name', 100);	VARCHAR equivalent with a length.
             case 'VARCHAR':
                 if ($data != "") {
-                    $eloquentCall .= 'string(\'' . $name . '\', ' . $data . ')';
+                    $migrationCall .= 'string(\'' . $name . '\', ' . $data . ')';
                 } else {
-                    $eloquentCall .= 'string(\'' . $name . '\')';
+                    $migrationCall .= 'string(\'' . $name . '\')';
                 }
                 break;
             //      $table->text('description');	TEXT equivalent for the database.
             case 'TEXT':
-                $eloquentCall .= 'text(\'' . $name . '\')';
+                $migrationCall .= 'text(\'' . $name . '\')';
                 break;
             //      $table->time('sunrise');	TIME equivalent for the database.
             case 'TIME':
-                $eloquentCall .= 'time(\'' . $name . '\')';
+                $migrationCall .= 'time(\'' . $name . '\')';
                 break;
             //      $table->tinyInteger('numbers');	TINYINT equivalent for the database.
             case 'TINYINT':
                 if($data==1){
-                    $eloquentCall .= 'boolean(\'' . $name . '\')';
+                    $migrationCall .= 'boolean(\'' . $name . '\')';
                 }else{
-                    $eloquentCall .= 'tinyInteger(\'' . $name . '\')';
+                    $migrationCall .= 'tinyInteger(\'' . $name . '\')';
                 }
                 break;
             //      $table->timestamp('added_on');	TIMESTAMP equivalent for the database.
             case 'TIMESTAMP':
-                $eloquentCall .= 'timestamp(\'' . $name . '\')';
+                $migrationCall .= 'timestamp(\'' . $name . '\')';
                 break;
             //      $table->timestamps();	Adds created_at and updated_at columns.
             case 'TIMESTAMPS':
-                $eloquentCall .= 'timestamps()';
+                $migrationCall .= 'timestamps()';
                 break;
             //      $table->uuid('id');
             case 'YEAR':
-                $eloquentCall .= 'tinyInteger(\'' . $name . '\')';
+                $migrationCall .= 'tinyInteger(\'' . $name . '\')';
                 break;
             case 'UUID':
-                $eloquentCall .= 'uuid(\'' . $name . '\')';
+                $migrationCall .= 'uuid(\'' . $name . '\')';
                 break;
             default:
                 return false;
         }
 
         if(strpos(strtoupper($info), " UNSIGNED") > -1){
-            $eloquentCall .= "->unsigned()";
+            $migrationCall .= "->unsigned()";
         }
 
         if(strtoupper($null) == "YES"){
-            $eloquentCall .= "->nullable()";
+            $migrationCall .= "->nullable()";
         }
 
         if($default != ""){
             if($default=="CURRENT_TIMESTAMP"){
-                $eloquentCall .= "->useCurrent()";
+                $migrationCall .= "->useCurrent()";
                 //Needs on update use current_timestamp feature if in extra
             }else{
-                $eloquentCall .= "->default('".addslashes($default)."')";
+                $migrationCall .= "->default('".addslashes($default)."')";
             }
 
         }
 
-        return $eloquentCall;
+        return $migrationCall;
     }
 
-    private function GetIndexes($tablename, $primaryKeys,$indentation){
+    private function GetIndexes($tablename, $primaryKeys, $indentation){
         $schemaname = $this->GetDatabase();
         $sqlQuery = "SELECT DISTINCT GROUP_CONCAT(COLUMN_NAME) as COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=:schemaname AND TABLE_NAME=:tablename AND Non_unique=1 AND INDEX_NAME <> 'PRIMARY' GROUP BY INDEX_NAME;";
         $relations = $this->db->Query($sqlQuery, [new SQLParameter(":schemaname",$schemaname), new SQLParameter(":tablename",$tablename)]);
