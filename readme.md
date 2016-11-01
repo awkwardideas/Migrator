@@ -9,6 +9,14 @@
 
 composer require awkwardideas/migrator
 
+## Add to Laravel App Config
+
+    /*
+     * Package Service Providers...
+     */
+    AwkwardIdeas\Migrator\MigratorServiceProvider::class,
+    //
+
 ## Commands via Artisan
 
 Command line actions are done via artisan.  The host, username, password from the .env file are used for making the connection.
